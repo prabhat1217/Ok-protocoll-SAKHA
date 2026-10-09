@@ -1,35 +1,66 @@
-name: Protocol Sakha - Project Check
+name: Protocol Sakha - Setup Project
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  inspect-project:
+  setup-project:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find project ZIP
+      - name: Extract project ZIP
+        shell: bash
         run: |
-          echo "Checking uploaded project files..."
-          find . -maxdepth 3 -type f -print
+          set -e
 
-      - name: Inspect ZIP contents
-        run: |
-          ZIP_FILE=$(find . -maxdepth 3 -type f -iname "*.zip" | head -n 1)
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Project ZIP was not found."
+            echo "ERROR: Project ZIP not found."
             exit 1
           fi
 
-          echo "Found ZIP: $ZIP_FILE"
-          echo "Project file list:"
-          unzip -l "$ZIP_FILE"
+          mkdir -p /tmp/protocol-sakha
+          unzip -o "$ZIP_FILE" -d /tmp/protocol-sakha
 
-      - name: Save inspection report
-        if: always()
+          PROJECT_DIR=$(find /tmp/protocol-sakha -type f -name "capacitor.config.json" -printf '%h\n' | head -n 1)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: Project files not found."
+            exit 1
+          fi
+
+          cp -a "$PROJECT_DIR"/. .
+
+          echo "Project files extracted successfully."
+
+      - name: Verify project files
         run: |
-          echo "Project inspection completed."
+          set -e
+          test -f capacitor.config.json
+          test -f package.json
+          test -f www/index.html
+
+          echo "Project verification successful."
+          echo "Checking build workflows:"
+          ls -la .github/workflows/ || true
+
+      - name: Commit project files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Extract Protocol Sakha project files"
+            git push
+          else
+            echo "No changes to commit."
+          fi
