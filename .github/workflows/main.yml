@@ -1,0 +1,35 @@
+name: Protocol Sakha - Project Check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect-project:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find project ZIP
+        run: |
+          echo "Checking uploaded project files..."
+          find . -maxdepth 3 -type f -print
+
+      - name: Inspect ZIP contents
+        run: |
+          ZIP_FILE=$(find . -maxdepth 3 -type f -iname "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: Project ZIP was not found."
+            exit 1
+          fi
+
+          echo "Found ZIP: $ZIP_FILE"
+          echo "Project file list:"
+          unzip -l "$ZIP_FILE"
+
+      - name: Save inspection report
+        if: always()
+        run: |
+          echo "Project inspection completed."
